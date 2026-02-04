@@ -221,14 +221,53 @@ const res = await axios.get(
 setCode(currentProblem.codeSnippets[lang] ?? '')
   }
 
-  const handleRunCode = () => {
-    setTestResult({ passed: 0, total: 2, status: 'running' })
-    setOutput('Running code...')
-    setTimeout(() => {
-      setTestResult({ passed: 2, total: 2, status: 'passed' })
-      setOutput('✓ Test case 1 passed (0.05s, 42.5MB)\n✓ Test case 2 passed (0.03s, 40.2MB)\n\nAll tests passed!')
-    }, 1500)
+  // const handleRunCode = () => {
+
+  //   setTestResult({ passed: 0, total: 2, status: 'running' })
+  //   setOutput('Running code...')
+  //   setTimeout(() => {
+  //     setTestResult({ passed: 2, total: 2, status: 'passed' })
+  //     setOutput('✓ Test case 1 passed (0.05s, 42.5MB)\n✓ Test case 2 passed (0.03s, 40.2MB)\n\nAll tests passed!')
+  //   }, 1500)
+  // }
+
+  const handleRunCode = async () => {
+    if (!code.trim()) {
+      setOutput('Please write some code before running.')
+      return
+    }
+
+    setTestResult({ passed: 0, total: 1, status: 'running' })
+    setOutput('Preparing execution environment...')
+
+    try {
+      // Use the first example's input if available as default test input
+      const defaultInput = currentProblem?.examples[0]?.input || ''
+      
+      const res = await axios.post('/api/coding-assessments/code/run', {
+        code,
+        language: selectedLanguage,
+        input: defaultInput,
+      })
+
+      if (res.data.status === 'SUCCESS') {
+        setOutput(res.data.output || 'Code executed successfully with no output.')
+        setTestResult({ passed: 1, total: 1, status: 'passed' })
+      } else {
+        setOutput(res.data.output || 'An error occurred during execution.')
+        setTestResult({ passed: 0, total: 1, status: 'failed' })
+      }
+    } catch (error: any) {
+      console.error('Run code error:', error)
+      const errorMsg = error.response?.data?.output || error.message || 'Failed to connect to execution server'
+      setOutput(`Error: ${errorMsg}`)
+      setTestResult({ passed: 0, total: 1, status: 'failed' })
+    }
   }
+
+ 
+
+
 
   const handleSubmitCode = () => {
     setTestResult({ passed: 0, total: 15, status: 'running' })

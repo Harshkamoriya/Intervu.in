@@ -127,6 +127,7 @@ export default function CodingAssessmentPage() {
   );
 }
 
+
 function InfoItem({
   icon,
   label,
