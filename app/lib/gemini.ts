@@ -7,11 +7,14 @@ export async function embedTextWithGemini(text: string): Promise<number[]> {
     console.log("Inside embedTextWithGemini function");
     console.log("🔑 GEMINI_API_KEY:", process.env.GEMINI_API_KEY ? "Loaded ✅" : "❌ Missing");
 
-    // Use the new Gemini Embedding model
-    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    // Use a stable Gemini Embedding model (gemini-embedding-001 is most compatible)
+    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
-    // Generate embedding
-    const result = await model.embedContent(text); // <-- Pass the text directly
+    // Generate embedding with forced 768 dimensions to match Pinecone
+    const result = await model.embedContent({
+      content: { parts: [{ text }], role: "user" },
+      outputDimensionality: 768
+    } as any);
 
     // Extract embedding vector
     const embedding = result.embedding?.values || [];

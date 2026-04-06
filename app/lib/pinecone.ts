@@ -13,8 +13,11 @@ export async function queryResumeChunks(resumeId: string, query: string, topK: n
 
   // --- Generate embedding ---
   console.log("🧠 Generating embedding for query...");
-  const model = genAi.getGenerativeModel({ model: "text-embedding-004" });
-  const embedResult = await model.embedContent(query);
+  const model = genAi.getGenerativeModel({ model: "gemini-embedding-001" });
+  const embedResult = await model.embedContent({
+    content: { parts: [{ text: query }], role: "user" },
+    outputDimensionality: 768
+  } as any);
   const embedding = embedResult.embedding.values;
   console.log("✅ Embedding generated, length:", embedding.length);
 

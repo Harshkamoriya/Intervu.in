@@ -3,7 +3,7 @@ import path from "path";
 
 import { NextResponse, NextRequest } from "next/server";
 import { Pinecone } from "@pinecone-database/pinecone";
-import { getAuth } from "@clerk/nextjs/server";
+import { getAuth, currentUser } from "@clerk/nextjs/server";
 import { v4 as uuidv4 } from "uuid";
 import {pdf} from "pdf-parse";  // ✅ Fixed import
 
@@ -20,13 +20,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1️⃣ Check if user exists in DB
-    const user = await prisma.user.findUnique({
+    // 1️⃣ Check if user exists in DB and auto-sync if missing
+    let user = await prisma.user.findUnique({
       where: { clerkId },
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      console.log("⚠️ User not found in DB. Auto-syncing from Clerk...");
+      const clerkUser = await currentUser();
+      
+      if (!clerkUser) {
+        return NextResponse.json({ error: "Clerk user data missing" }, { status: 401 });
+      }
+
+      const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+      if (!email) {
+        return NextResponse.json({ error: "User email not found in Clerk" }, { status: 400 });
+      }
+
+      user = await prisma.user.create({
+        data: {
+          clerkId,
+          email,
+          name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || undefined,
+        },
+      });
+      console.log("✅ User auto-synced into Prisma DB:", user.id);
     }
 
     const formData = await req.formData();
@@ -143,7 +162,6 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       resumeId: resume.id,
       jobRole: "software engineer",
-      aiInterviewerId: "default-ai",
     });
 
     return NextResponse.json({

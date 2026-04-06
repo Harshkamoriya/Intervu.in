@@ -1,8 +1,4 @@
 import prisma from "./db";
-
-
-
-
 export async function endInterview(
     sessionId : string,
     transcript :any[],
