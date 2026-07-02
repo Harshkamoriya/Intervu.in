@@ -4,10 +4,11 @@ import { NextRequest } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const report = await getDetailedReportService(params.id);
+    const { id } = await params;
+    const report = await getDetailedReportService(id);
     return success(report);
   } catch (err: any) {
     return failure(err.message || "Failed to fetch report");

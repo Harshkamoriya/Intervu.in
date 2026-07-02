@@ -8,6 +8,7 @@ import { queryResumeChunks } from "@/app/lib/pinecone";
 import { updateSession, endInterview } from "@/app/lib/interviewUtils";
 import { INTERVIEW_SYSTEM_PROMPT } from "@/app/lib/prompt";
 import { generateFinalInterviewReport } from "@/app/lib/interviewUtils";
+import { getCoachPersona } from "@/app/lib/coachPersonas";
 
 // ----------------------
 // Interfaces
@@ -87,9 +88,9 @@ function safeParseJSON<T>(input: string, fallback: T): T {
 // ----------------------
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const sessionId = params.id;
+  const { id: sessionId } = await params;
   try {
     const session = await prisma.interviewSession.findUnique({
       where: { id: sessionId },
@@ -100,6 +101,8 @@ export async function GET(
         scores: true,
         status: true,
         jobRole: true,
+        aiInterviewerId: true,
+        modelVersion: true,
       },
     });
 
@@ -130,11 +133,11 @@ export async function GET(
 // ----------------------
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const body = await req.json();
   const { reply, start } = body;
-  const sessionId = params.id;
+  const { id: sessionId } = await params;
 
   const session = await prisma.interviewSession.findUnique({
     where: { id: sessionId },
@@ -160,7 +163,8 @@ export async function POST(
         { status: 400 }
       );
     }
-    const introMessage = `Hello, I'm VirtuInterview AI, your virtual interviewer for the ${session.jobRole} role. We'll discuss your experiences, skills, and projects in a conversational way. To get started, could you briefly introduce yourself and your background?`;
+    const coach = getCoachPersona(session.modelVersion ?? session.aiInterviewerId);
+    const introMessage = `Hello, I'm ${coach.name}, your AI interview coach for the ${session.jobRole} role. ${coach.tagline}. We'll have a conversational interview about your experiences, skills, and projects. To get started, could you briefly introduce yourself and your background?`;
 
     transcript.push({
       type: "intro",
@@ -216,11 +220,13 @@ export async function POST(
   try {
     let resumeContext = "";
     let geminiResponse: GeminiInterviewResponse;
+    const coach = getCoachPersona(session.modelVersion ?? session.aiInterviewerId);
+    const personaPrompt = `${coach.systemPromptAddition}\n\n${INTERVIEW_SYSTEM_PROMPT}`;
 
     if (current.type === "intro") {
-      const prompt = INTERVIEW_SYSTEM_PROMPT.replace(
+      const prompt = personaPrompt.replace(
         "{jobRole}",
-        session.jobRole
+        session.jobRole ?? "Software Engineer"
       ).replace("{resumeContext}", "");
 
       const fullPrompt = `${prompt}\n\nConversation history: ${JSON.stringify(
@@ -283,9 +289,9 @@ export async function POST(
       const chunks = await queryResumeChunks(session.resumeId, query, 5);
       resumeContext = chunks.map((c) => c.content).join("\n\n");
 
-      const prompt = INTERVIEW_SYSTEM_PROMPT.replace(
+      const prompt = personaPrompt.replace(
         "{jobRole}",
-        session.jobRole
+        session.jobRole ?? "Software Engineer"
       ).replace("{resumeContext}", resumeContext);
 
       const fullPrompt = `${prompt}\n\nConversation history: ${JSON.stringify(
@@ -332,11 +338,13 @@ export async function POST(
         sentiment: geminiResponse.analysis.confidence,
       });
 
-      if (geminiResponse.endInterview) {
+    if (geminiResponse.endInterview) {
        const result =  await generateFinalInterviewReport(sessionId);
         return NextResponse.json({
           ended: true,
           aiMessage: geminiResponse.nextMessage || null,
+          transcript,
+          finalReport: result.finalReport,
           result
         });
       }
@@ -352,6 +360,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       aiMessage: aiMessage || null,
+      transcript,
       ended: false,
     });
   } catch (err) {

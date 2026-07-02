@@ -10,7 +10,6 @@ import {pdf} from "pdf-parse";  // ✅ Fixed import
 
 import prisma from "@/app/lib/db";
 import { embedTextWithGemini } from "@/app/lib/gemini";
-import { createInterviewSession } from "@/app/lib/interviewSession";
 
 export async function POST(req: NextRequest) {
   console.log("🟢 [UPLOAD ROUTE] Request received at:", new Date().toISOString());
@@ -158,17 +157,10 @@ export async function POST(req: NextRequest) {
     }
     console.log("✅ All chunks processed successfully!");
 
-    const interviewSessionId = await createInterviewSession({
-      userId: user.id,
-      resumeId: resume.id,
-      jobRole: "software engineer",
-    });
-
     return NextResponse.json({
       success: true,
       documentId: document.id,
       resumeId,
-      interviewSessionId,
     });
   } catch (error: any) {
     console.error("❌ [UPLOAD ERROR]:", error);

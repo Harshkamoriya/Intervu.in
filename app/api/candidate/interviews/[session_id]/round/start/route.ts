@@ -3,9 +3,9 @@ import { getNextRoundId, startRound } from "@/modules/rounds/execution.service";
 
 export async function POST(
   _: Request,
-  { params }: { params: { session_id: string } }
+  { params }: { params: Promise<{ session_id: string }> }
 ) {
-  const sessionId = params.session_id;
+  const { session_id: sessionId } = await params;
   
   // derivation logic
   const nextRoundId = await getNextRoundId(sessionId);

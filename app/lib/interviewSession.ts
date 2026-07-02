@@ -1,4 +1,3 @@
-// 🚀 Improved createInterviewSession (generalized for any resume)
 import prisma from "@/app/lib/db";
 import { generateWithGemini } from "@/app/lib/llm";
 import { queryResumeChunks } from "@/app/lib/pinecone";
@@ -8,38 +7,29 @@ export async function createInterviewSession({
   resumeId,
   jobRole,
   aiInterviewerId,
+  coachPersonaId,
 }: {
   userId: string;
   resumeId: string;
   jobRole: string;
+  /** FK to AIInterviewer table — only set if a real DB row exists */
   aiInterviewerId?: string;
+  /** Free-text coach persona ID (e.g. "ava", "marcus", "priya") */
+  coachPersonaId?: string;
 }) {
-  console.log("📩 [createInterviewSession] called with:", {
-    userId,
-    resumeId,
-    jobRole,
-    aiInterviewerId,
-  });
+  console.log("📩 [createInterviewSession] called with:", { userId, resumeId, jobRole, coachPersonaId });
 
-  if (!resumeId) {
-    console.error("❌ Missing resumeId");
-    throw new Error("Missing resumeId");
-  }
-    const INTERVIEWER_TONE = `
-You are a calm, conversational senior software engineer conducting a technical interview. 
-Ask naturally phrased questions — concise, curious, and human-like. 
-Avoid robotic transitions like "you mentioned" or "based on your resume". 
-Keep each question under 2 sentences.
-`;
+  if (!resumeId) throw new Error("Missing resumeId");
 
-  // Create session
-  console.log("🛠️ Creating interview session in DB...");
+  // 1. Create the session record immediately — this is what the user waits for.
   const session = await prisma.interviewSession.create({
     data: {
       userId,
       resumeId,
       jobRole,
-      aiInterviewerId,
+      aiInterviewerId: aiInterviewerId ?? null,
+      // Store the coach persona slug (ava/marcus/priya) in modelVersion — no FK constraint
+      modelVersion: coachPersonaId ?? aiInterviewerId ?? null,
       status: "PENDING",
       questionQueue: [],
       transcript: [],
@@ -48,128 +38,90 @@ Keep each question under 2 sentences.
   });
   console.log("✅ Created interview session:", session.id);
 
-  // Fetch resume
-  console.log("🔍 Fetching resume from DB...");
-  const resume = await prisma.resume.findUnique({ where: { id: resumeId } });
-  if (!resume) {
-    console.error("❌ Resume not found:", resumeId);
-    throw new Error("Resume not found");
-  }
-  
-  console.log("📄 Resume found:", resume.filename);
-  console.log(resume.fullResumeText,"db resumefulltext")
-  
-  // Fetch all resume chunks to reconstruct full text
-  console.log("🧩 Fetching all resume chunks from Pinecone...");
+  // 2. Pre-generate questions in the background (fire-and-forget).
+  //    The interview flow works without them — the POST /api/interviews/[id] handler
+  //    generates questions live from Gemini on each turn anyway.
+  //    If this fails, the session still starts correctly.
+  prefillQuestions(session.id, resumeId, jobRole).catch((err) => {
+    console.warn("⚠️ Background question pre-generation failed (non-fatal):", err?.message ?? err);
+  });
+
+  return session.id;
+}
+
+// ---------------------------------------------------------------------------
+// Background: extract resume sections + generate question queue
+// ---------------------------------------------------------------------------
+async function prefillQuestions(sessionId: string, resumeId: string, jobRole: string) {
+  const INTERVIEWER_TONE = `
+You are a calm, conversational senior software engineer conducting a technical interview. 
+Ask naturally phrased questions — concise, curious, and human-like. 
+Avoid robotic transitions like "you mentioned" or "based on your resume". 
+Keep each question under 2 sentences.
+`;
+
+  // Fetch resume chunks from Pinecone
   const allChunks = await queryResumeChunks(resumeId, " ", 30);
   const fullResumeText = allChunks.map((c) => c.content).join("\n");
 
-  console.log("full resume text", fullResumeText)
   if (!fullResumeText) {
-    console.warn("⚠️ No resume content found in Pinecone for ID:", resumeId);
+    console.warn("⚠️ No resume chunks found in Pinecone for:", resumeId);
+    return;
   }
 
-  // 🧠 Step 1: Extract dynamic sections using Gemini
-  console.log("🧠 Extracting sections dynamically with Gemini...");
+  // Step 1: Extract sections
   const sectionPrompt = `
-You are an expert at analyzing resumes. Given the text below, categorize its content into the following standardized sections:
+You are an expert at analyzing resumes. Given the text below, categorize its content into these sections:
 - Skills or Technologies
-- Projects or Achievements
+- Projects or Achievements  
 - Education
 - Experience or Internships
 - Certifications or Extracurriculars
 
-Return only a clean JSON object mapping section names to their corresponding extracted text. 
-Even if some sections are missing, include empty strings for them.
-
-Example output:
-{
-  "skills": "...",
-  "projects": "...",
-  "education": "...",
-  "experience": "...",
-  "certifications": "..."
-}
+Return ONLY a raw JSON object (no markdown, no code fences):
+{"skills":"...","projects":"...","education":"...","experience":"...","certifications":"..."}
 
 Resume Text:
 ${fullResumeText}
 `;
 
-  let sectionJson = await generateWithGemini(sectionPrompt);
-  sectionJson = sectionJson.replace(/```json/g, "").replace(/```/g, "").trim();
-
   let sectionResults: Record<string, string>;
   try {
+    const sectionJson = await generateWithGemini(sectionPrompt);
     sectionResults = JSON.parse(sectionJson);
-    console.log("✅ Successfully extracted resume sections:", Object.keys(sectionResults));
-        console.log("✅ Successfully extracted resume sections:", Object.values(sectionResults));
-
+    console.log("✅ Resume sections extracted for session:", sessionId);
   } catch (err) {
-    console.error("❌ Failed to parse Gemini JSON for section extraction:", err);
-    throw new Error("Gemini returned invalid section JSON.");
+    console.warn("⚠️ Section extraction failed, using empty sections:", err);
+    sectionResults = { skills: "", projects: "", education: "", experience: "", certifications: "" };
   }
 
-  console.log( "sectionresults are as follows ",sectionResults)
-
-  // 🧠 Step 2: Generate technical interview questions
+  // Step 2: Generate questions
   const questionPrompt = `${INTERVIEWER_TONE}
-You are a senior software engineer interviewing a candidate for a ${jobRole} position. 
-Your goal is to generate technical questions that directly reference specific skills, projects, technologies, or experiences from the candidate's resume.
+You are interviewing a candidate for a ${jobRole} position.
+Generate 5–8 targeted technical questions based on this resume data:
 
-Here is the structured resume data:
+SKILLS: ${sectionResults.skills || ""}
+PROJECTS: ${sectionResults.projects || ""}
+EDUCATION: ${sectionResults.education || ""}
+EXPERIENCE: ${sectionResults.experience || ""}
+CERTIFICATIONS: ${sectionResults.certifications || ""}
 
-== SKILLS ==
-${sectionResults.skills || ""}
+Requirements:
+- Reference specific items from the resume
+- Probe technical depth and decision-making
+- Mix conceptual and project-related questions
+- Include 3–5 expected answer keywords per question
 
-== PROJECTS ==
-${sectionResults.projects || ""}
-
-== EDUCATION ==
-${sectionResults.education || ""}
-
-== EXPERIENCE ==
-${sectionResults.experience || ""}
-
-== CERTIFICATIONS ==
-${sectionResults.certifications || ""}
-
----
-
-Generate 5–10 targeted technical questions that:
-- Directly reference specific items from the resume (e.g., "You mentioned building a project with Next.js...")
-- Probe technical depth, decision-making, or implementation details
-- Include a mix of conceptual and project-related questions
-- Avoid behavioral or generic questions
-- For each question, include 3–5 primary keywords expected in a strong answer.
-
-Respond ONLY with a raw JSON array of objects, no extra text or markdown:
-[
-  {"question": "Question text", "primaryKeywords": ["key1", "key2", "key3"]}
-]
+Respond ONLY with a raw JSON array, no markdown:
+[{"question":"...","primaryKeywords":["key1","key2"]}]
 `;
 
-  console.log("🧠 Sending prompt to Gemini for question generation...");
-  let questionsJson = await generateWithGemini(questionPrompt);
-  questionsJson = questionsJson.replace(/```json/g, "").replace(/```/g, "").trim();
+  const questionsJson = await generateWithGemini(questionPrompt);
+  const questions: { question: string; primaryKeywords: string[] }[] = JSON.parse(questionsJson);
 
-  let questions: { question: string; primaryKeywords: string[] }[] = [];
-  try {
-    questions = JSON.parse(questionsJson);
-    console.log("✅ Parsed Gemini questions successfully:", questions);
-  } catch {
-    console.error("❌ Failed to parse Gemini JSON for questions:", Error);
-    throw new Error("Gemini returned invalid question JSON format.",);
-  }
-
-  // 💾 Update session with generated questions
-  console.log("💾 Updating interview session with generated questions...");
   await prisma.interviewSession.update({
-    where: { id: session.id },
-    data: {
-      questionQueue: questions,
-    },
+    where: { id: sessionId },
+    data: { questionQueue: questions },
   });
-  console.log("✅ Interview session updated successfully:", session.id);
-
-  return session.id;
+  console.log("✅ Question queue pre-filled for session:", sessionId, `(${questions.length} questions)`);
 }

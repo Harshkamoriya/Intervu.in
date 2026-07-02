@@ -1,20 +1,58 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAi = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAi = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-export async function generateWithGemini(prompt: string) {
-    console.log("inside the generate with gemini function");
-    const generativeModel = genAi.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await generativeModel.generateContent(prompt);
-console.log("result inside the generateWithGemini",result)
-    // raw text from Gemini
-    let text = result.response.text();
-    console.log("text in the generative ai " , text)
+// Models to try in order — both are currently active (July 2025)
+// gemini-1.5-* are shut down; gemini-2.5-flash-lite is the lightweight fallback
+const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
-    // Remove ```json or ``` code fences
-    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+const MAX_RETRIES = 4;
+const BASE_DELAY_MS = 2000; // 2s, 4s, 8s, 16s
 
-    return text;
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export async function generateWithGemini(prompt: string): Promise<string> {
+  let lastError: unknown;
 
+  for (const modelName of MODELS) {
+    const model = genAi.getGenerativeModel({ model: modelName });
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[Gemini] model=${modelName} attempt=${attempt + 1}`);
+        const result = await model.generateContent(prompt);
+        let text = result.response.text();
+        text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        console.log(`[Gemini] ✅ success model=${modelName}`);
+        return text;
+      } catch (err: any) {
+        lastError = err;
+        const status: number | undefined = err?.status ?? err?.response?.status;
+
+        console.warn(
+          `[Gemini] ${modelName} attempt ${attempt + 1} failed — status=${status ?? "unknown"}`
+        );
+
+        // 404 means the model doesn't exist for this API key/region — skip immediately
+        if (status === 400 || status === 401 || status === 403 || status === 404) {
+          console.warn(`[Gemini] Non-retryable status ${status} for ${modelName}, skipping model`);
+          break;
+        }
+
+        // 429 / 503 / 500 — retryable, wait then retry
+        if (attempt < MAX_RETRIES - 1) {
+          const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+          console.log(`[Gemini] Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+        }
+      }
+    }
+
+    console.warn(`[Gemini] All retries exhausted for model=${modelName}, trying next model`);
+  }
+
+  console.error("[Gemini] All models and retries failed");
+  throw lastError;
+}

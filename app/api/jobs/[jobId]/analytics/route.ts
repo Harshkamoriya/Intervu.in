@@ -4,10 +4,11 @@ import { NextRequest } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const analytics = await getJobAnalyticsService(params.jobId);
+    const { jobId } = await params;
+    const analytics = await getJobAnalyticsService(jobId);
     return success(analytics);
   } catch (err: any) {
     return failure(err.message || "Failed to fetch analytics");

@@ -3,14 +3,15 @@ import prisma from "@/app/lib/db";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const { sessionId } = await params;
   console.log("🔍 [GET] /assessment-session");
-  console.log("➡️ sessionId:", params.sessionId);
+  console.log("➡️ sessionId:", sessionId);
 
   try {
     const session = await prisma.assessmentSession.findUnique({
-      where: { id: params.sessionId },
+      where: { id: sessionId },
       include: {
         questions: {
           orderBy: { order: "asc" },
@@ -26,13 +27,13 @@ export async function GET(
       },
     });
 
-    if (!session) {
-      console.error("❌ Session not found:", params.sessionId);
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
-    }
+      if (!session) {
+        console.error("❌ Session not found:", sessionId);
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 }
+        );
+      }
 
     console.log("✅ Session found");
     console.log("🕒 endsAt:", session.endsAt);

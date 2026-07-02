@@ -5,7 +5,6 @@ import { Geist } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import { ReactQueryProvider } from "./components/ReactQueryProvider";
-import Header from "./components/Header";
 
 export const metadata: Metadata = {
   title: "Interview.ai",
@@ -25,10 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${geist.variable} `}>
+      <html lang="en" className={`${geist.variable}`}>
         <body>
           <ReactQueryProvider>
-            <Header />
             {children}
             <Toaster
               position="top-right"

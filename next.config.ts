@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  outputFileTracingRoot: __dirname,
   serverExternalPackages: ["pdf-parse"],
   eslint: {
     // Warning: This allows production builds with lint issues
