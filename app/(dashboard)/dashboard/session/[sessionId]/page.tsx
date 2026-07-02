@@ -72,7 +72,15 @@ const InterviewPage = () => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   
-  const turnManagerRef = useRef(new TurnManager());
+  // Use a ref for the send callback so TurnManager can always call the latest version
+  // without needing to be re-created when handleSendReply changes.
+  const sendReplyCallbackRef = useRef<(text: string) => void>(() => {});
+
+  const turnManagerRef = useRef<TurnManager>(
+    new TurnManager({
+      onTurnEnd: (text) => sendReplyCallbackRef.current(text),
+    })
+  );
 
   const coach = getCoachPersona(sessionData?.modelVersion ?? sessionData?.aiInterviewerId);
 
@@ -282,41 +290,47 @@ const InterviewPage = () => {
           const payload = JSON.parse(msg.data);
           const msgType = payload.message_type || payload.type;
 
+          // --- Audio-level speech_end from AssemblyAI (primary turn signal) ---
+          if (msgType === "SpeechEnd" || payload.speech_end) {
+            turnManagerRef.current?.onSpeechEnd();
+            return;
+          }
+
           if (msgType === "FinalTranscript") {
             const newFinal = payload.text || payload.transcript || "";
             if (newFinal.trim()) {
               finalizedSpeechRef.current = (finalizedSpeechRef.current + " " + newFinal).trim();
               setReply(finalizedSpeechRef.current);
               lastSpeechValue.current = finalizedSpeechRef.current;
-              turnManagerRef.current.onTranscript(finalizedSpeechRef.current);
+              turnManagerRef.current?.onFinalTranscript(newFinal);
+              // Reset the fallback silence countdown on each new final chunk
+              startSilenceCountdown();
+              if (speechTimer.current) clearTimeout(speechTimer.current);
+              speechTimer.current = setTimeout(() => {
+                // Fallback: if TurnManager hasn't fired yet after SILENCE_MS, force submit
+                const content = lastSpeechValue.current;
+                if (content.trim()) {
+                  stopRealtimeSTT();
+                  clearSilenceCountdown();
+                  lastSpeechValue.current = "";
+                  finalizedSpeechRef.current = "";
+                  setReply("");
+                  turnManagerRef.current?.reset();
+                  handleSendReply(content);
+                }
+              }, SILENCE_MS);
             }
           } else if (msgType === "PartialTranscript") {
             const partial = payload.text || payload.transcript || "";
             const combined = (finalizedSpeechRef.current + " " + partial).trim();
             setReply(combined);
             lastSpeechValue.current = combined;
-            turnManagerRef.current.onTranscript(combined);
+            turnManagerRef.current?.onPartialTranscript(partial);
           } else if (payload.text || payload.transcript) {
             const text = payload.text ?? payload.transcript;
             setReply(text);
             lastSpeechValue.current = text;
-            turnManagerRef.current.onTranscript(text);
-          }
-
-          if (lastSpeechValue.current.trim()) {
-            if (speechTimer.current) clearTimeout(speechTimer.current);
-            startSilenceCountdown();
-            speechTimer.current = setTimeout(() => {
-              if (lastSpeechValue.current.trim()) {
-                const content = lastSpeechValue.current;
-                stopRealtimeSTT();
-                clearSilenceCountdown();
-                handleSendReply(content);
-                lastSpeechValue.current = "";
-                finalizedSpeechRef.current = "";
-                setReply("");
-              }
-            }, SILENCE_MS);
+            turnManagerRef.current?.onPartialTranscript(text);
           }
         } catch (err) {
           console.error("ws parse error", err);
@@ -370,8 +384,22 @@ const InterviewPage = () => {
     }
   };
 
+  // Keep sendReplyCallbackRef pointing to the latest handleSendReply closure.
+  // This lets TurnManager call it without needing to be re-created.
+  useEffect(() => {
+    sendReplyCallbackRef.current = (text: string) => {
+      stopRealtimeSTT();
+      clearSilenceCountdown();
+      lastSpeechValue.current = "";
+      finalizedSpeechRef.current = "";
+      setReply("");
+      handleSendReply(text);
+    };
+  });
+
   const handleSendReply = async (content: string) => {
     if (!content.trim()) return;
+    turnManagerRef.current?.reset();
     setTurnState("ai_thinking");
 
     try {
@@ -419,6 +447,7 @@ const InterviewPage = () => {
     if (!reply.trim()) return;
     stopRealtimeSTT();
     clearSilenceCountdown();
+    turnManagerRef.current?.reset();
     const content = reply;
     lastSpeechValue.current = "";
     finalizedSpeechRef.current = "";
