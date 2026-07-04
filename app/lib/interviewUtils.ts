@@ -157,15 +157,34 @@ Match each questionReview entry to a Q&A pair from the transcript. Respond ONLY 
   };
 }
 
+// export async function updateSession(
+//   sessionId: string,
+//   transcript: any[],
+//   questionQueue: any[],
+//   scores: any[]
+// ) {
+//   return prisma.interviewSession.update({
+//     where: { id: sessionId },
+//     data: { transcript, questionQueue, scores, updatedAt: new Date() },
+//   });
+// }
+
 export async function updateSession(
   sessionId: string,
   transcript: any[],
   questionQueue: any[],
-  scores: any[]
+  scores: any[],
+  interviewMemory?: any // ✅ new
 ) {
   return prisma.interviewSession.update({
     where: { id: sessionId },
-    data: { transcript, questionQueue, scores, updatedAt: new Date() },
+    data: {
+      transcript,
+      questionQueue,
+      scores,
+      ...(interviewMemory ? { interviewMemory } : {}),
+      updatedAt: new Date(),
+    },
   });
 }
 

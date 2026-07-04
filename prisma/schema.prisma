@@ -9,6 +9,8 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+
+
 model Document {
   id        String   @id @default(cuid())
   userId    String
@@ -107,6 +109,7 @@ model InterviewSession {
   transcript      Json[]
   scores          Json[]
   report          Json?
+  interviewMemory Json?
   finalScore      Float?
   finalReport     Json?
   startedAt       DateTime?

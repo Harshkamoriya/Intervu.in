@@ -12,6 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-polly": "^3.917.0",
     "@google/generative-ai": "^0.24.1",
+    "@livekit/components-react": "^2.9.21",
     "@mediapipe/camera_utils": "^0.3.1675466862",
     "@mediapipe/face_detection": "^0.4.1646425229",
     "@monaco-editor/react": "^4.7.0",
@@ -35,6 +36,8 @@
     "formidable": "^3.5.4",
     "framer-motion": "^12.23.24",
     "ioredis": "^5.8.2",
+    "livekit-client": "^2.20.0",
+    "livekit-server-sdk": "^2.16.0",
     "lucide-react": "^0.545.0",
     "monaco-editor": "^0.55.1",
     "next": "^15.5.4",

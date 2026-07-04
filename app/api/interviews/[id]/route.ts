@@ -9,10 +9,34 @@ import { updateSession, endInterview } from "@/app/lib/interviewUtils";
 import { INTERVIEW_SYSTEM_PROMPT } from "@/app/lib/prompt";
 import { generateFinalInterviewReport } from "@/app/lib/interviewUtils";
 import { getCoachPersona } from "@/app/lib/coachPersonas";
+import {
+  createEmptyMemory,
+  isInterviewMemory,
+  mergeMemoryUpdate,
+  formatMemoryForPrompt,
+  type InterviewMemory,
+} from "@/app/lib/interviewMemory";
+
+
 
 // ----------------------
 // Interfaces
 // ----------------------
+// interface GeminiInterviewResponse {
+//   analysis: {
+//     correctness: number;
+//     relevance: number;
+//     confidence: "High" | "Medium" | "Low";
+//     reason: string;
+//   };
+//   score: number;
+//   nextMessage: string;
+//   type: "question" | "followup" | "hint_followup" | "encouragement" | "intro";
+//   endInterview: boolean;
+// }
+
+
+
 interface GeminiInterviewResponse {
   analysis: {
     correctness: number;
@@ -21,6 +45,11 @@ interface GeminiInterviewResponse {
     reason: string;
   };
   score: number;
+  memoryUpdate?: {
+    topic: string;
+    status: "strong" | "average" | "weak";
+    note: string;
+  };
   nextMessage: string;
   type: "question" | "followup" | "hint_followup" | "encouragement" | "intro";
   endInterview: boolean;
@@ -153,6 +182,10 @@ export async function POST(
     ? session.scores
     : [];
 
+    const memory: InterviewMemory = isInterviewMemory(session.interviewMemory)
+  ? session.interviewMemory
+  : createEmptyMemory();
+
   // ----------------------
   // START flow
   // ----------------------
@@ -172,15 +205,28 @@ export async function POST(
       timestamp: new Date().toISOString(),
     });
 
-    await prisma.interviewSession.update({
-      where: { id: sessionId },
-      data: {
-    transcript:transcript as any
-, // ✅ FIXED
-        status: "IN_PROGRESS",
-        startedAt: new Date(),
-      },
-    });
+//     await prisma.interviewSession.update({
+//       where: { id: sessionId },
+//       data: {
+//     transcript:transcript as any
+// , // ✅ FIXED
+//         status: "IN_PROGRESS",
+//         startedAt: new Date(),
+//       },
+//     });
+
+
+await prisma.interviewSession.update({
+  where: { id: sessionId },
+  data: {
+    transcript: transcript as any,
+    interviewMemory: createEmptyMemory() as any, // ✅ new
+    status: "IN_PROGRESS",
+    startedAt: new Date(),
+  },
+});
+
+
 
     return NextResponse.json({
       success: true,
@@ -222,7 +268,7 @@ export async function POST(
     let geminiResponse: GeminiInterviewResponse;
     const coach = getCoachPersona(session.modelVersion ?? session.aiInterviewerId);
     const personaPrompt = `${coach.systemPromptAddition}\n\n${INTERVIEW_SYSTEM_PROMPT}`;
-
+    
     if (current.type === "intro") {
       const prompt = personaPrompt.replace(
         "{jobRole}",
@@ -288,11 +334,21 @@ export async function POST(
         ? await queryResumeChunks(session.resumeId, query, 5)
         : [];
       resumeContext = chunks.map((c) => c.content).join("\n\n");
+      const memory: InterviewMemory = isInterviewMemory(session.interviewMemory)
+      ? session.interviewMemory
+      : createEmptyMemory();
 
-      const prompt = personaPrompt.replace(
-        "{jobRole}",
-        session.jobRole ?? "Software Engineer"
-      ).replace("{resumeContext}", resumeContext);
+
+      // const prompt = personaPrompt.replace(
+      //   "{jobRole}",
+      //   session.jobRole ?? "Software Engineer"
+      // ).replace("{resumeContext}", resumeContext);
+
+
+      const prompt = personaPrompt
+  .replace("{jobRole}", session.jobRole ?? "Software Engineer")
+  .replace("{resumeContext}", resumeContext)
+  .replace("{interviewMemory}", formatMemoryForPrompt(memory)); // ✅ new
 
       const fullPrompt = `${prompt}\n\nConversation history: ${JSON.stringify(
         history
@@ -311,6 +367,8 @@ export async function POST(
         type: "followup",
         endInterview: false,
       });
+
+
 
       transcript.push({
         type: "reply",
@@ -339,6 +397,7 @@ export async function POST(
       });
 
     if (geminiResponse.endInterview) {
+        await updateSession(sessionId, transcript, [], scores); // ✅ persist before ending
        const result =  await generateFinalInterviewReport(sessionId);
         return NextResponse.json({
           ended: true,
@@ -350,7 +409,14 @@ export async function POST(
       }
     }
 
-    await updateSession(sessionId, transcript, [], scores);
+    const updatedMemory = mergeMemoryUpdate(memory, {
+  ...geminiResponse.memoryUpdate,
+  confidence: geminiResponse.analysis.confidence,
+});
+
+     
+
+    await updateSession(sessionId, transcript, [], scores ,updatedMemory);
 
     const aiMessage =
       transcript.at(-1)?.type !== "reply"
