@@ -251,11 +251,9 @@ export async function POST(
         geminiResponse.analysis.correctness < 5 ||
         geminiResponse.analysis.relevance < 5
       ) {
-        const chunks = await queryResumeChunks(
-          session.resumeId,
-          "Key skills, projects, and experiences.",
-          10
-        );
+        const chunks = session.resumeId
+          ? await queryResumeChunks(session.resumeId, "Key skills, projects, and experiences.", 10)
+          : [];
         resumeContext = chunks.map((c) => c.content).join("\n\n");
       }
 
@@ -286,7 +284,9 @@ export async function POST(
     } else {
       // Regular Q&A flow
       const query = `${current.message} ${reply}`;
-      const chunks = await queryResumeChunks(session.resumeId, query, 5);
+      const chunks = session.resumeId
+        ? await queryResumeChunks(session.resumeId, query, 5)
+        : [];
       resumeContext = chunks.map((c) => c.content).join("\n\n");
 
       const prompt = personaPrompt.replace(
@@ -364,7 +364,8 @@ export async function POST(
       ended: false,
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("❌ Error in POST handler:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

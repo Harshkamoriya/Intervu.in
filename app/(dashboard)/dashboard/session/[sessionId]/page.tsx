@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
-import { TurnManager } from "@/app/lib/conversation/TurnManager";
 import {
   Mic,
   MicOff,
@@ -15,6 +14,12 @@ import {
   VideoOff,
   Loader2,
 } from "lucide-react";
+
+import {
+  Room,
+  RoomEvent,
+} from "livekit-client";
+
 
 import { getCoachPersona } from "@/app/lib/coachPersonas";
 import { Button } from "@/app/components/ui/button";
@@ -38,7 +43,17 @@ interface SessionData {
 
 type TurnState = "idle" | "ai_thinking" | "ai_speaking" | "your_turn" | "listening";
 
-const SILENCE_MS = 4000;
+// TEMP DEBUG FLAG — set back to true once STT is confirmed working again.
+// While false, LiveKit room connect + mic publish are skipped entirely so we
+// can isolate whether LiveKit is interfering with the AssemblyAI audio pipeline.
+const ENABLE_LIVEKIT = false;
+
+// AssemblyAI native end-of-turn tuning. Higher confidence threshold / more
+// silence = safer against cutting the candidate off, but slower to respond.
+// Lower = snappier, more risk of premature submission.
+const END_OF_TURN_CONFIDENCE_THRESHOLD = 0.7;
+const MIN_END_OF_TURN_SILENCE_WHEN_CONFIDENT = 400; // ms, used when model is confident
+const MAX_TURN_SILENCE = 2400; // ms, hard fallback ceiling when model isn't confident
 
 const InterviewPage = () => {
   const { sessionId } = useParams();
@@ -51,7 +66,6 @@ const InterviewPage = () => {
   const [isStarted, setIsStarted] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [silenceCountdown, setSilenceCountdown] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -64,25 +78,32 @@ const InterviewPage = () => {
   const socketRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const speechTimer = useRef<NodeJS.Timeout | null>(null);
-  const countdownInterval = useRef<NodeJS.Timeout | null>(null);
-  const lastSpeechValue = useRef<string>("");
-  const finalizedSpeechRef = useRef<string>("");
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const roomRef = useRef<Room | null>(null);
 
-  
-  // Use a ref for the send callback so TurnManager can always call the latest version
-  // without needing to be re-created when handleSendReply changes.
+  // Use a ref for the send callback so the AssemblyAI ws handler can always
+  // call the latest version without needing to be re-created.
   const sendReplyCallbackRef = useRef<(text: string) => void>(() => {});
 
-  const turnManagerRef = useRef<TurnManager>(
-    new TurnManager({
-      onTurnEnd: (text) => sendReplyCallbackRef.current(text),
-    })
-  );
-
   const coach = getCoachPersona(sessionData?.modelVersion ?? sessionData?.aiInterviewerId);
+
+  const connectLiveKit = async () => {
+    if (!ENABLE_LIVEKIT) {
+      console.log("[LiveKit] skipped — ENABLE_LIVEKIT is false");
+      return;
+    }
+    const res = await fetch("/api/livekit/token");
+    const { token, url } = await res.json();
+
+    const room = new Room();
+
+    await room.connect(url, token);
+
+    roomRef.current = room;
+
+    console.log("✅ Room connected");
+  };
 
   const fetchTranscript = useCallback(async () => {
     try {
@@ -93,6 +114,11 @@ const InterviewPage = () => {
       setTranscript(Array.isArray(data.session.transcript) ? data.session.transcript : []);
       if (data.session.status === "ENDED") {
         router.push(`/dashboard/session/${sessionId}/report`);
+      }
+      // If session is already in progress (e.g. page refresh), sync local state
+      if (data.session.status === "IN_PROGRESS") {
+        setIsStarted(true);
+        setTurnState("your_turn");
       }
     } catch (err) {
       console.error("fetchTranscript error", err);
@@ -105,8 +131,6 @@ const InterviewPage = () => {
       stopRealtimeSTT();
       stopCamera();
       speechSynthesis.cancel();
-      if (speechTimer.current) clearTimeout(speechTimer.current);
-      if (countdownInterval.current) clearInterval(countdownInterval.current);
       if (timerInterval.current) clearInterval(timerInterval.current);
     };
   }, [fetchTranscript]);
@@ -181,28 +205,6 @@ const InterviewPage = () => {
     else startCamera();
   };
 
-  const clearSilenceCountdown = () => {
-    if (countdownInterval.current) {
-      clearInterval(countdownInterval.current);
-      countdownInterval.current = null;
-    }
-    setSilenceCountdown(0);
-  };
-
-  const startSilenceCountdown = () => {
-    clearSilenceCountdown();
-    let remaining = SILENCE_MS / 1000;
-    setSilenceCountdown(remaining);
-    countdownInterval.current = setInterval(() => {
-      remaining -= 1;
-      setSilenceCountdown(Math.max(0, remaining));
-      if (remaining <= 0 && countdownInterval.current) {
-        clearInterval(countdownInterval.current);
-        countdownInterval.current = null;
-      }
-    }, 1000);
-  };
-
   const startInterviewFlow = async () => {
     if (isStarted) return;
     setIsStarted(true);
@@ -215,6 +217,15 @@ const InterviewPage = () => {
         body: JSON.stringify({ start: true }),
       });
       const data = await res.json();
+
+      // Session already started (e.g. from a previous attempt) — just resume listening
+      if (data.error === "Session already started") {
+        setTurnState("your_turn");
+        await connectLiveKit();
+        startRealtimeSTT();
+        return;
+      }
+
       if (data.error) {
         toast.error(data.error);
         setIsStarted(false);
@@ -226,12 +237,14 @@ const InterviewPage = () => {
       }
       const aiMessage = data.aiMessage ?? null;
       if (aiMessage) {
-        speak(aiMessage, () => {
+        speak(aiMessage, async () => {
           setTurnState("your_turn");
+          await connectLiveKit();
           startRealtimeSTT();
         });
       } else {
         setTurnState("your_turn");
+        await connectLiveKit();
         startRealtimeSTT();
       }
     } catch {
@@ -252,26 +265,60 @@ const InterviewPage = () => {
       const token = tokenData.token;
       if (!token) throw new Error("No STT token");
 
-      const ws = new WebSocket(
-        `wss://streaming.assemblyai.com/v3/ws?sample_rate=16000&encoding=pcm_s16le&token=${token}`
-      );
+      const params = new URLSearchParams({
+        sample_rate: "16000",
+        encoding: "pcm_s16le",
+        token,
+        format_turns: "true",
+        end_of_turn_confidence_threshold: String(END_OF_TURN_CONFIDENCE_THRESHOLD),
+        min_end_of_turn_silence_when_confident: String(
+          MIN_END_OF_TURN_SILENCE_WHEN_CONFIDENT
+        ),
+        max_turn_silence: String(MAX_TURN_SILENCE),
+      });
+
+      const ws = new WebSocket(`wss://streaming.assemblyai.com/v3/ws?${params.toString()}`);
       socketRef.current = ws;
 
       ws.onopen = async () => {
+        console.log("[AAI ws] connection opened");
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           micStreamRef.current = stream;
+          console.log("[AAI ws] mic acquired, tracks:", stream.getAudioTracks().length);
+
+          if (ENABLE_LIVEKIT) {
+            if (roomRef.current) {
+              console.log("Publishing to LiveKit...");
+              const audioTrack = stream.getAudioTracks()[0];
+              await roomRef.current.localParticipant.publishTrack(audioTrack);
+              console.log("✅ Mic published to LiveKit");
+            } else {
+              console.log("❌ roomRef.current is null");
+            }
+          }
+
           const audioContext = new AudioContext({ sampleRate: 16000 });
+          console.log("[AAI ws] AudioContext state:", audioContext.state);
           const source = audioContext.createMediaStreamSource(stream);
           const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
           source.connect(processor);
           processor.connect(audioContext.destination);
 
+          let chunkCount = 0;
           processor.onaudioprocess = (e) => {
             const inputData = e.inputBuffer.getChannelData(0);
             const buffer = floatTo16BitPCM(inputData);
-            if (ws.readyState === WebSocket.OPEN) ws.send(buffer);
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(buffer);
+              chunkCount++;
+              if (chunkCount % 50 === 0) {
+                console.log(`[AAI ws] sent ${chunkCount} audio chunks so far`);
+              }
+            } else if (chunkCount === 0) {
+              console.warn("[AAI ws] audioprocess firing but ws not OPEN, readyState:", ws.readyState);
+            }
           };
 
           audioContextRef.current = audioContext;
@@ -288,61 +335,53 @@ const InterviewPage = () => {
       ws.onmessage = (msg) => {
         try {
           const payload = JSON.parse(msg.data);
-          const msgType = payload.message_type || payload.type;
 
-          // --- Audio-level speech_end from AssemblyAI (primary turn signal) ---
-          if (msgType === "SpeechEnd" || payload.speech_end) {
-            turnManagerRef.current?.onSpeechEnd();
+          // DEBUG: log every message type we get from AssemblyAI so we can see
+          // Begin / Turn / Error / Termination events while diagnosing.
+          console.log("[AAI ws] message_type:", payload.type, payload);
+
+          if (payload.type === "Error") {
+            console.error("[AAI ws] AssemblyAI returned an Error message:", payload);
+            toast.error(payload.error ?? "Speech service error");
             return;
           }
 
-          if (msgType === "FinalTranscript") {
-            const newFinal = payload.text || payload.transcript || "";
-            if (newFinal.trim()) {
-              finalizedSpeechRef.current = (finalizedSpeechRef.current + " " + newFinal).trim();
-              setReply(finalizedSpeechRef.current);
-              lastSpeechValue.current = finalizedSpeechRef.current;
-              turnManagerRef.current?.onFinalTranscript(newFinal);
-              // Reset the fallback silence countdown on each new final chunk
-              startSilenceCountdown();
-              if (speechTimer.current) clearTimeout(speechTimer.current);
-              speechTimer.current = setTimeout(() => {
-                // Fallback: if TurnManager hasn't fired yet after SILENCE_MS, force submit
-                const content = lastSpeechValue.current;
-                if (content.trim()) {
-                  stopRealtimeSTT();
-                  clearSilenceCountdown();
-                  lastSpeechValue.current = "";
-                  finalizedSpeechRef.current = "";
-                  setReply("");
-                  turnManagerRef.current?.reset();
-                  handleSendReply(content);
-                }
-              }, SILENCE_MS);
-            }
-          } else if (msgType === "PartialTranscript") {
-            const partial = payload.text || payload.transcript || "";
-            const combined = (finalizedSpeechRef.current + " " + partial).trim();
-            setReply(combined);
-            lastSpeechValue.current = combined;
-            turnManagerRef.current?.onPartialTranscript(partial);
-          } else if (payload.text || payload.transcript) {
-            const text = payload.text ?? payload.transcript;
+          // AssemblyAI v3 streaming sends message_type: "Turn" for every update.
+          // payload.transcript          -> current text for this turn
+          // payload.end_of_turn         -> true once the model decides the turn is done
+          // payload.turn_is_formatted   -> true once punctuation/casing applied
+          // payload.end_of_turn_confidence -> 0..1 confidence for the end-of-turn call
+          if (payload.type !== "Turn") return;
+
+          const text: string = (payload.transcript ?? "").trim();
+
+          if (payload.end_of_turn) {
+            // Wait for the formatted version so the submitted text has proper
+            // punctuation/casing — the unformatted end_of_turn event fires first.
+            if (!payload.turn_is_formatted) return;
+            if (!text) return;
+
+            console.log(
+              `[AAI ws] end_of_turn (confidence=${payload.end_of_turn_confidence}):`,
+              text
+            );
+            sendReplyCallbackRef.current(text);
+          } else if (text) {
             setReply(text);
-            lastSpeechValue.current = text;
-            turnManagerRef.current?.onPartialTranscript(text);
           }
         } catch (err) {
-          console.error("ws parse error", err);
+          console.error("[AAI ws] parse error", err, "raw data:", msg.data);
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (e) => {
+        console.error("[AAI ws] error", e);
         toast.error("Speech connection lost — use Send Reply as fallback");
         setTurnState("your_turn");
       };
 
-      ws.onclose = () => {
+      ws.onclose = (e) => {
+        console.warn("[AAI ws] closed — code:", e.code, "reason:", e.reason, "wasClean:", e.wasClean);
         stopRealtimeSTT(false);
       };
     } catch {
@@ -379,19 +418,14 @@ const InterviewPage = () => {
       sourceRef.current = null;
       audioContextRef.current = null;
       setIsRecording(false);
-      clearSilenceCountdown();
       if (resetTurn && isStarted) setTurnState("your_turn");
     }
   };
 
   // Keep sendReplyCallbackRef pointing to the latest handleSendReply closure.
-  // This lets TurnManager call it without needing to be re-created.
   useEffect(() => {
     sendReplyCallbackRef.current = (text: string) => {
-      stopRealtimeSTT();
-      clearSilenceCountdown();
-      lastSpeechValue.current = "";
-      finalizedSpeechRef.current = "";
+      stopRealtimeSTT(false);
       setReply("");
       handleSendReply(text);
     };
@@ -399,7 +433,6 @@ const InterviewPage = () => {
 
   const handleSendReply = async (content: string) => {
     if (!content.trim()) return;
-    turnManagerRef.current?.reset();
     setTurnState("ai_thinking");
 
     try {
@@ -431,7 +464,12 @@ const InterviewPage = () => {
       if (aiMessage) {
         speak(aiMessage, () => {
           setTurnState("your_turn");
-          startRealtimeSTT();
+          connectLiveKit()
+            .then(() => {
+              console.log("LiveKit connected");
+              startRealtimeSTT();
+            })
+            .catch(console.error);
         });
       } else {
         setTurnState("your_turn");
@@ -446,13 +484,27 @@ const InterviewPage = () => {
   const handleManualSend = () => {
     if (!reply.trim()) return;
     stopRealtimeSTT();
-    clearSilenceCountdown();
-    turnManagerRef.current?.reset();
     const content = reply;
-    lastSpeechValue.current = "";
-    finalizedSpeechRef.current = "";
     setReply("");
     handleSendReply(content);
+  };
+
+  const resetSession = async () => {
+    try {
+      const res = await fetch(`/api/interviews/${sessionId}/reset`, { method: "POST" });
+      const data = await res.json();
+      if (data.error) { toast.error(data.error); return; }
+      stopRealtimeSTT(false);
+      speechSynthesis.cancel();
+      setReply("");
+      setTranscript([]);
+      setIsStarted(false);
+      setTurnState("idle");
+      setElapsedSeconds(0);
+      toast.success("Session reset — ready to start again");
+    } catch {
+      toast.error("Failed to reset session");
+    }
   };
 
   const endInterview = async () => {
@@ -649,22 +701,15 @@ const InterviewPage = () => {
         {/* Live transcription bar */}
         {(isRecording || reply) && isStarted && (
           <div className="mb-3 rounded-lg border border-gray-700 bg-gray-800/60 px-4 py-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isRecording ? (
-                  <Mic className="h-4 w-4 text-red-400 animate-pulse" />
-                ) : (
-                  <MicOff className="h-4 w-4 text-gray-500" />
-                )}
-                <span className="text-sm text-gray-300 font-mono">
-                  {reply || "Listening..."}
-                </span>
-              </div>
-              {silenceCountdown > 0 && (
-                <span className="text-xs text-amber-400">
-                  Auto-send in {silenceCountdown}s
-                </span>
+            <div className="flex items-center gap-2">
+              {isRecording ? (
+                <Mic className="h-4 w-4 text-red-400 animate-pulse" />
+              ) : (
+                <MicOff className="h-4 w-4 text-gray-500" />
               )}
+              <span className="text-sm text-gray-300 font-mono">
+                {reply || "Listening..."}
+              </span>
             </div>
           </div>
         )}
@@ -675,12 +720,24 @@ const InterviewPage = () => {
 
         <div className="flex items-center gap-3">
           {!isStarted ? (
-            <Button
-              onClick={startInterviewFlow}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 py-5"
-            >
-              Start Interview
-            </Button>
+            <>
+              <Button
+                onClick={startInterviewFlow}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 py-5"
+              >
+                Start Interview
+              </Button>
+              {sessionData?.status === "IN_PROGRESS" && (
+                <Button
+                  onClick={resetSession}
+                  variant="outline"
+                  className="border-amber-700 text-amber-400 hover:bg-amber-950"
+                  title="Reset this session back to PENDING so you can restart"
+                >
+                  Reset Session
+                </Button>
+              )}
+            </>
           ) : (
             <>
               <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -708,6 +765,15 @@ const InterviewPage = () => {
                 className="bg-red-600 hover:bg-red-700"
               >
                 <PhoneOff className="mr-1 h-4 w-4" /> End
+              </Button>
+
+              <Button
+                onClick={resetSession}
+                variant="outline"
+                className="border-amber-700 text-amber-400 hover:bg-amber-950 text-xs px-2"
+                title="Reset session to restart from scratch"
+              >
+                Reset
               </Button>
             </>
           )}

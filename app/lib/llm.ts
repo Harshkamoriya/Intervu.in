@@ -4,7 +4,7 @@ const genAi = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // Models to try in order — both are currently active (July 2025)
 // gemini-1.5-* are shut down; gemini-2.5-flash-lite is the lightweight fallback
-const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
+const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash-latest", "gemini-pro"];
 
 const MAX_RETRIES = 4;
 const BASE_DELAY_MS = 2000; // 2s, 4s, 8s, 16s
@@ -35,9 +35,10 @@ export async function generateWithGemini(prompt: string): Promise<string> {
           `[Gemini] ${modelName} attempt ${attempt + 1} failed — status=${status ?? "unknown"}`
         );
 
-        // 404 means the model doesn't exist for this API key/region — skip immediately
-        if (status === 400 || status === 401 || status === 403 || status === 404) {
-          console.warn(`[Gemini] Non-retryable status ${status} for ${modelName}, skipping model`);
+        // 404 = model not found, 400/401/403 = bad request — skip model immediately
+        // 429 = quota exhausted — no point retrying same model, move to next
+        if (status === 400 || status === 401 || status === 403 || status === 404 || status === 429) {
+          console.warn(`[Gemini] Status ${status} for ${modelName} — skipping to next model`);
           break;
         }
 

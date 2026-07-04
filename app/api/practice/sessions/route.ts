@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 
 import prisma from "@/app/lib/db";
@@ -12,9 +12,9 @@ interface FinalReportShape {
   improvements?: string[];
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const { userId: clerkId } = getAuth();
+    const { userId: clerkId } = getAuth(req);
     if (!clerkId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
