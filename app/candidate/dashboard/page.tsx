@@ -6,16 +6,20 @@ import {
   ChevronRight, 
   Clock, 
   FileText, 
-  MoreHorizontal, 
   Plus, 
   Sparkles, 
   Zap,
-  CheckCircle2,
   AlertCircle,
   Timer,
-  ArrowRight
+  ArrowRight,
+  Target,
+  TrendingUp,
+  BookOpen,
+  Lightbulb,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const stats = [
@@ -83,7 +87,12 @@ export default function CandidateDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+      >
         {stats.map((stat, i) => (
           <div key={i} className="bg-card border border-border p-6 rounded-lg shadow-sm hover:border-primary/50 transition-all group flex items-center justify-between">
             <div className="space-y-1">
@@ -95,7 +104,184 @@ export default function CandidateDashboard() {
             </div>
           </div>
         ))}
-      </div>
+      </motion.div>
+
+      {/* AI Coach Recommendations */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Lightbulb size={20} className="text-primary" /> AI Coach Recommendations
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border border-border bg-card rounded-lg p-5 space-y-3">
+            <p className="text-sm font-semibold text-foreground">📚 Suggested Topics</p>
+            <ul className="space-y-2 text-sm">
+              <li className="text-muted-foreground">• System Design Patterns</li>
+              <li className="text-muted-foreground">• Database Optimization</li>
+              <li className="text-muted-foreground">• Behavioral Interview Skills</li>
+            </ul>
+          </div>
+
+          <div className="border border-border bg-card rounded-lg p-5 space-y-3">
+            <p className="text-sm font-semibold text-foreground">🎯 Weak Areas to Focus</p>
+            <ul className="space-y-2 text-sm">
+              <li className="text-muted-foreground">• Operating Systems (45% accuracy)</li>
+              <li className="text-muted-foreground">• Communication Skills</li>
+              <li className="text-muted-foreground">• Speaking Pace & Clarity</li>
+            </ul>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Progress Overview */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="space-y-4"
+      >
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <TrendingUp size={20} className="text-primary" /> Progress Overview
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { label: "Overall Score", value: "7.5/10", change: "+0.3" },
+            { label: "Interviews", value: "4 completed", change: "2 this month" },
+            { label: "Resume ATS", value: "82%", change: "+5%" },
+            { label: "Hours Practiced", value: "12h", change: "3h this week" },
+            { label: "Current Streak", value: "5 days", change: "Personal best!" },
+            { label: "Topics Covered", value: "6/12", change: "50% progress" },
+          ].map((metric, idx) => (
+            <div key={idx} className="border border-border bg-card rounded-lg p-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{metric.label}</p>
+              <div className="flex items-end justify-between">
+                <p className="text-2xl font-bold text-foreground">{metric.value}</p>
+                <p className="text-xs text-chart-2 font-semibold">{metric.change}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* Skill Analytics */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="space-y-4"
+      >
+        <h2 className="text-xl font-bold">Skill Analytics</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { skill: "DSA", score: 75 },
+            { skill: "System Design", score: 68 },
+            { skill: "Communication", score: 82 },
+            { skill: "DBMS", score: 78 },
+            { skill: "Networking", score: 65 },
+            { skill: "Operating Systems", score: 58 },
+          ].map((item) => (
+            <div key={item.skill} className="border border-border bg-card rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-foreground">{item.skill}</p>
+                <span className="text-sm font-bold text-primary">{item.score}%</span>
+              </div>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: `${item.score}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* Resume Health */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="space-y-4"
+      >
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <FileText size={20} className="text-primary" /> Resume Health
+        </h2>
+
+        <div className="border border-border bg-card rounded-lg p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-foreground mb-1">ATS Score: 82%</p>
+              <p className="text-sm text-muted-foreground">Your resume passes 82% of ATS filters</p>
+            </div>
+            <span className="text-3xl font-bold text-chart-2">82%</span>
+          </div>
+          
+          <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-chart-2 rounded-full" style={{ width: "82%" }} />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-foreground">Improvement suggestions:</p>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              <li>• Add more specific metrics to your experience</li>
+              <li>• Include relevant keywords from job descriptions</li>
+              <li>• Optimize skills section for ATS parsing</li>
+            </ul>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Learning Roadmap */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="space-y-4"
+      >
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <Target size={20} className="text-primary" /> Learning Roadmap
+        </h2>
+
+        <div className="border border-border bg-card rounded-lg p-6 space-y-4">
+          <p className="text-sm text-muted-foreground mb-4">Progress toward Backend Engineer position</p>
+          
+          <div className="space-y-3">
+            {[
+              { stage: "Resume Optimization", completed: true },
+              { stage: "DSA Fundamentals", completed: true },
+              { stage: "Backend Concepts", completed: true },
+              { stage: "Database Design", completed: false },
+              { stage: "System Design", completed: false },
+              { stage: "Mock Interviews", completed: false },
+            ].map((stage, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <div className={cn(
+                  "w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold",
+                  stage.completed ? "bg-chart-2 text-white" : "bg-muted text-muted-foreground"
+                )}>
+                  {stage.completed ? "✓" : idx + 1}
+                </div>
+                <span className={cn(
+                  "text-sm font-medium",
+                  stage.completed ? "text-chart-2 line-through" : "text-foreground"
+                )}>
+                  {stage.stage}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground">Current: Database Design • Est. completion: 3 weeks</p>
+          </div>
+        </div>
+      </motion.section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content: Applications */}

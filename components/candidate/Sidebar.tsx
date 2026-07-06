@@ -3,8 +3,7 @@
 import { 
   BarChart3, 
   LayoutDashboard, 
-  FileText, 
-  Settings
+  FileText
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,8 +12,8 @@ import { UserButton } from "@clerk/nextjs";
 
 const links = [
   { label: "Dashboard", href: "/candidate/dashboard", icon: LayoutDashboard },
-  { label: "My Applications", href: "/candidate/interviews", icon: FileText },
-  { label: "Performance", href: "/candidate/performance", icon: BarChart3 },
+  { label: "Interviews", href: "/candidate/interviews", icon: FileText },
+  { label: "Reports", href: "/candidate/reports", icon: BarChart3 },
 ];
 
 export default function CandidateSidebar() {
@@ -57,14 +56,7 @@ export default function CandidateSidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-border space-y-3">
-        <Link
-          href="/candidate/settings"
-          className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
-        >
-          <Settings size={18} />
-          Settings
-        </Link>
+      <div className="p-4 border-t border-border">
         <div className="flex items-center justify-between px-4 py-3 bg-secondary rounded-lg border border-border hover:border-primary/50 transition-all">
           <div className="flex items-center gap-3">
              <UserButton afterSignOutUrl="/" />
