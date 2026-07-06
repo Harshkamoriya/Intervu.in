@@ -15,15 +15,6 @@ const Header = () => {
 
         {/* Right side */}
         <div className="flex items-center gap-4 sm:gap-6">
-          <div className="hidden sm:flex items-center gap-5 text-sm font-medium text-muted-foreground">
-            <Link href="/how-it-works" className="hover:text-foreground transition-colors">
-              How it works
-            </Link>
-            <Link href="/for-companies" className="hover:text-foreground transition-colors">
-              For companies
-            </Link>
-          </div>
-
           <UserButton 
             afterSignOutUrl="/"
             appearance={{

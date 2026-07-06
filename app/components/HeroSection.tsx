@@ -2,12 +2,10 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "./ui/button";
-import { cn } from "@/lib/utils";
 
 const HeroSection = () => {
   return (
@@ -70,23 +68,84 @@ const HeroSection = () => {
         </div>
       </motion.div>
 
-      {/* Right – Visual */}
+      {/* Right – Features Showcase */}
       <motion.div
         initial={{ opacity: 0, x: 40 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
         className="relative mt-16 lg:mt-0 lg:ml-12 xl:ml-20 max-w-md lg:max-w-lg"
       >
-        <div className="relative rounded-2xl overflow-hidden border border-border bg-card">
-          <Image
-            src="/unnamed.jpg"
-            alt="Interview Practice Platform"
-            width={600}
-            height={600}
-            priority
-            className="w-full h-auto object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent pointer-events-none" />
+        <div className="space-y-4">
+          {/* Feature Card 1 */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="border border-border bg-card rounded-lg p-6 hover:border-primary/50 transition-all"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <span className="text-xl">🎯</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">AI-Powered Coaching</h3>
+                <p className="text-sm text-muted-foreground mt-1">Real-time feedback from multiple AI coaches</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Feature Card 2 */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="border border-border bg-card rounded-lg p-6 hover:border-primary/50 transition-all"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <span className="text-xl">📊</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Detailed Analytics</h3>
+                <p className="text-sm text-muted-foreground mt-1">Track your progress with comprehensive reports</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Feature Card 3 */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="border border-border bg-card rounded-lg p-6 hover:border-primary/50 transition-all"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <span className="text-xl">⚡</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Instant Results</h3>
+                <p className="text-sm text-muted-foreground mt-1">Get actionable feedback immediately after each session</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="grid grid-cols-2 gap-4 pt-4"
+          >
+            <div className="border border-border bg-card rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-primary">10K+</div>
+              <div className="text-xs text-muted-foreground mt-1">Students Trained</div>
+            </div>
+            <div className="border border-border bg-card rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-primary">95%</div>
+              <div className="text-xs text-muted-foreground mt-1">Success Rate</div>
+            </div>
+          </motion.div>
         </div>
       </motion.div>
     </section>
