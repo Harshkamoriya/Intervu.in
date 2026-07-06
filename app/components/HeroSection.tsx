@@ -4,124 +4,90 @@ import React from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "./ui/button";
-import { cn } from "@/lib/utils"; // assuming you have shadcn cn helper
+import { cn } from "@/lib/utils";
 
 const HeroSection = () => {
   return (
-    <section className="relative w-full min-h-screen flex flex-col lg:flex-row items-center justify-between overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-950 dark:via-indigo-950/40 dark:to-purple-950/30 px-5 sm:px-8 md:px-12 lg:px-16 xl:px-24 py-12 lg:py-0">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/10 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-gradient-to-tr from-blue-400/15 to-indigo-400/10 rounded-full blur-3xl animate-pulse-slow delay-1000" />
-        <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-gradient-to-r from-amber-300/10 to-rose-300/10 rounded-full blur-2xl animate-pulse-slow delay-2000" />
-      </div>
-
+    <section className="relative w-full min-h-screen flex flex-col lg:flex-row items-center justify-between bg-background px-6 sm:px-8 md:px-12 lg:px-16 xl:px-20 py-20 lg:py-32">
       {/* Left – Content */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9, ease: "easeOut" }}
-        className="relative z-10 flex flex-col items-center lg:items-start text-center lg:text-left max-w-2xl gap-7 lg:gap-9"
+        transition={{ duration: 0.6 }}
+        className="flex flex-col items-start text-left max-w-2xl gap-6"
       >
-        {/* Optional small badge / tag */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-          className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm px-4 py-1.5 text-sm font-medium text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/40 shadow-sm"
-        >
-          <Sparkles className="h-4 w-4" />
-          AI-Powered • Real-Time Feedback
-        </motion.div>
+        <div className="flex items-center gap-3">
+          <div className="h-1 w-1.5 rounded-full bg-primary" />
+          <span className="text-sm font-medium text-muted-foreground">Interview Preparation</span>
+        </div>
 
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight">
-          <span className="text-gray-900 dark:text-white block">Master Your Next</span>
-          <span className="bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Interview
-          </span>
+        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-foreground">
+          Master Your Next Interview
         </h1>
 
-        <p className="text-lg sm:text-xl md:text-2xl text-gray-700 dark:text-gray-300 max-w-xl leading-relaxed font-light">
-          Practice realistic AI interviews, get instant personalized feedback, and land your dream job — faster than ever.
+        <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
+          Practice realistic mock interviews with AI coaches, receive instant feedback, and interview with confidence.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center gap-5 mt-4 sm:mt-8">
+        <div className="flex flex-col sm:flex-row items-center gap-4 mt-8">
           <Link href="/dashboard">
             <Button
               size="lg"
-              className={cn(
-                "group relative overflow-hidden px-10 py-7 text-lg font-semibold rounded-xl",
-                "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700",
-                "shadow-lg shadow-indigo-500/30 hover:shadow-indigo-600/40 transition-all duration-300"
-              )}
+              className="px-8 py-6 text-base font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-all duration-200"
             >
-              <span className="relative z-10 flex items-center gap-2">
-                Start Practicing Free
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <span className="flex items-center gap-2">
+                Get Started
+                <ArrowRight className="h-4 w-4" />
               </span>
-              <span className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-30 transition-opacity" />
             </Button>
           </Link>
 
           <Button
             variant="outline"
             size="lg"
-            className="px-10 py-7 text-lg font-medium border-2 border-gray-300/70 dark:border-gray-700/70 hover:bg-gray-100/70 dark:hover:bg-gray-800/50 backdrop-blur-sm transition-all duration-300 rounded-xl"
+            className="px-8 py-6 text-base font-medium border border-border bg-background hover:bg-secondary text-foreground rounded-lg transition-colors duration-200"
           >
-            Watch Demo
+            Learn More
           </Button>
         </div>
 
-        {/* Mini social proof */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-6 text-sm text-gray-600 dark:text-gray-400"
-        >
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 border-2 border-white dark:border-gray-900" />
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 border-2 border-white dark:border-gray-900" />
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-rose-500 border-2 border-white dark:border-gray-900" />
+        <div className="mt-12 flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+              <span className="text-sm font-semibold text-foreground">2K+</span>
             </div>
-            <span><strong>2,400+</strong> interviews completed</span>
+            <span className="text-sm text-muted-foreground">Interviews completed</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-yellow-500">★★★★★</span>
-            <span>4.9 from 380+ users</span>
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+              <span className="text-sm font-semibold text-foreground">4.9★</span>
+            </div>
+            <span className="text-sm text-muted-foreground">Average rating from users</span>
           </div>
-        </motion.div>
+        </div>
       </motion.div>
 
-      {/* Right – Visual / Illustration */}
+      {/* Right – Visual */}
       <motion.div
-        initial={{ opacity: 0, x: 80, scale: 0.92 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
-        transition={{ duration: 1.1, delay: 0.3, ease: "easeOut" }}
-        className="relative z-10 mt-12 lg:mt-0 lg:ml-8 xl:ml-16 max-w-md xl:max-w-lg"
+        initial={{ opacity: 0, x: 40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="relative mt-16 lg:mt-0 lg:ml-12 xl:ml-20 max-w-md lg:max-w-lg"
       >
-        {/* Glassmorphism card wrapper */}
-        <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-purple-500/20 border border-white/20 dark:border-gray-700/30 backdrop-blur-sm bg-white/10 dark:bg-black/20">
+        <div className="relative rounded-2xl overflow-hidden border border-border bg-card">
           <Image
-            src="/unnamed.jpg" // ← replace with better mockup / illustration if possible
-            alt="AI Interview Simulation"
+            src="/unnamed.jpg"
+            alt="Interview Practice Platform"
             width={600}
             height={600}
             priority
-            className="w-full h-auto object-cover rounded-3xl"
+            className="w-full h-auto object-cover"
           />
-
-          {/* Overlay shine / gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent pointer-events-none" />
         </div>
-
-        {/* Floating accent blobs */}
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-br from-purple-500/30 to-pink-500/20 rounded-full blur-2xl animate-pulse-slow" />
-        <div className="absolute -bottom-10 -left-16 w-64 h-64 bg-gradient-to-tr from-indigo-500/25 to-blue-500/15 rounded-full blur-3xl animate-pulse-slow delay-1500" />
       </motion.div>
     </section>
   );

@@ -103,10 +103,10 @@ export default function PracticeHubPage() {
   };
 
   const verdictColor = useCallback((verdict: string | null) => {
-    if (verdict === "Hire") return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-    if (verdict === "Maybe") return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-    if (verdict === "No Hire") return "bg-rose-500/20 text-rose-400 border-rose-500/30";
-    return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    if (verdict === "Hire") return "bg-chart-2/20 text-chart-2 border-chart-2/30";
+    if (verdict === "Maybe") return "bg-chart-3/20 text-chart-3 border-chart-3/30";
+    if (verdict === "No Hire") return "bg-chart-4/20 text-chart-4 border-chart-4/30";
+    return "bg-muted/20 text-muted-foreground border-muted/30";
   }, []);
 
   useEffect(() => {
@@ -117,8 +117,8 @@ export default function PracticeHubPage() {
 
   if (!isSignedIn) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-950">
-        <p className="text-gray-400">Redirecting to login...</p>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">Redirecting to login...</p>
       </div>
     );
   }
@@ -127,10 +127,10 @@ export default function PracticeHubPage() {
   const sessions = practiceData?.sessions ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-background text-foreground">
       <AppHeader />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-6xl px-6 py-8 sm:px-8 lg:px-12">
         {/* Quick Stats Banner */}
         <motion.section
           initial={{ opacity: 0, y: -10 }}
@@ -138,19 +138,19 @@ export default function PracticeHubPage() {
           className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3"
         >
           <StatCard
-            icon={<Mic className="h-5 w-5 text-blue-400" />}
+            icon={<Mic className="h-5 w-5 text-primary" />}
             label="Interviews Completed"
             value={stats?.totalCompleted ?? 0}
             loading={sessionsLoading}
           />
           <StatCard
-            icon={<TrendingUp className="h-5 w-5 text-emerald-400" />}
+            icon={<TrendingUp className="h-5 w-5 text-primary" />}
             label="Average Score"
             value={stats?.averageScore ? `${stats.averageScore}/10` : "—"}
             loading={sessionsLoading}
           />
           <StatCard
-            icon={<Award className="h-5 w-5 text-violet-400" />}
+            icon={<Award className="h-5 w-5 text-primary" />}
             label="Strongest / Weakest"
             value={
               stats?.strongestArea
@@ -167,15 +167,15 @@ export default function PracticeHubPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-12 rounded-2xl border border-gray-800 bg-gray-900/60 p-6 sm:p-8"
+          className="mb-12 rounded-lg border border-border bg-card p-6 sm:p-8"
         >
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20">
-              <Mic className="h-5 w-5 text-blue-400" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Mic className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Start New Mock Interview</h2>
-              <p className="text-sm text-gray-400">
+              <h2 className="text-xl font-bold text-foreground">Start New Mock Interview</h2>
+              <p className="text-sm text-muted-foreground">
                 Upload your resume, pick a role, choose your AI coach
               </p>
             </div>
@@ -188,7 +188,7 @@ export default function PracticeHubPage() {
                 key={s}
                 className={cn(
                   "h-1 flex-1 rounded-full transition-colors",
-                  step >= s ? "bg-blue-500" : "bg-gray-700"
+                  step >= s ? "bg-primary" : "bg-muted"
                 )}
               />
             ))}
@@ -196,25 +196,25 @@ export default function PracticeHubPage() {
 
           {/* Step 1: Upload Resume */}
           <div className={cn("space-y-4", step !== 1 && "hidden")}>
-            <label className="block text-sm font-medium text-gray-300">
+            <label className="block text-sm font-medium text-foreground">
               Step 1 — Upload Resume (PDF, max 5MB)
             </label>
             <div
               className={cn(
-                "flex h-40 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors",
+                "flex h-40 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors",
                 resumeFile
-                  ? "border-emerald-500/50 bg-emerald-950/20"
-                  : "border-gray-700 hover:border-blue-500/50 bg-gray-800/40"
+                  ? "border-primary/50 bg-primary/5"
+                  : "border-border hover:border-primary/50 bg-secondary"
               )}
               onClick={() => document.getElementById("resumeUpload")?.click()}
             >
-              <Upload className={cn("mb-3 h-8 w-8", resumeFile ? "text-emerald-400" : "text-gray-500")} />
+              <Upload className={cn("mb-3 h-8 w-8", resumeFile ? "text-primary" : "text-muted-foreground")} />
               {resumeFile ? (
-                <p className="font-medium text-emerald-400">{resumeName}</p>
+                <p className="font-medium text-primary">{resumeName}</p>
               ) : (
                 <>
-                  <p className="font-medium text-gray-300">Click to upload or drag & drop</p>
-                  <p className="mt-1 text-sm text-gray-500">PDF up to 5MB</p>
+                  <p className="font-medium text-foreground">Click to upload or drag & drop</p>
+                  <p className="mt-1 text-sm text-muted-foreground">PDF up to 5MB</p>
                 </>
               )}
               <input
@@ -238,7 +238,7 @@ export default function PracticeHubPage() {
             <Button
               onClick={handleResumeUpload}
               disabled={!resumeFile || uploadMutation.isPending}
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {uploadMutation.isPending ? (
                 <>
@@ -252,7 +252,7 @@ export default function PracticeHubPage() {
 
           {/* Step 2: Select Role */}
           <div className={cn("space-y-4", step !== 2 && "hidden")}>
-            <label className="block text-sm font-medium text-gray-300">
+            <label className="block text-sm font-medium text-foreground">
               Step 2 — Select Target Role
             </label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -267,8 +267,8 @@ export default function PracticeHubPage() {
                   className={cn(
                     "rounded-lg border px-3 py-2.5 text-sm font-medium transition-all",
                     jobRole === role
-                      ? "border-blue-500 bg-blue-600/20 text-blue-300"
-                      : "border-gray-700 bg-gray-800/40 text-gray-400 hover:border-gray-600"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-secondary text-foreground hover:border-primary/50"
                   )}
                 >
                   {role}
@@ -280,8 +280,8 @@ export default function PracticeHubPage() {
                 className={cn(
                   "rounded-lg border px-3 py-2.5 text-sm font-medium transition-all",
                   jobRole === "custom"
-                    ? "border-blue-500 bg-blue-600/20 text-blue-300"
-                    : "border-gray-700 bg-gray-800/40 text-gray-400 hover:border-gray-600"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-secondary text-foreground hover:border-primary/50"
                 )}
               >
                 Custom Role
@@ -293,17 +293,17 @@ export default function PracticeHubPage() {
                 placeholder="Enter your target role..."
                 value={customRole}
                 onChange={(e) => setCustomRole(e.target.value)}
-                className="w-full rounded-lg border border-gray-700 bg-gray-800/60 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-secondary px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
               />
             )}
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(1)} className="border-gray-700 text-gray-300">
+              <Button variant="outline" onClick={() => setStep(1)} className="border-border text-foreground">
                 Back
               </Button>
               <Button
                 onClick={() => setStep(3)}
                 disabled={!effectiveRole}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Continue
               </Button>
@@ -312,7 +312,7 @@ export default function PracticeHubPage() {
 
           {/* Step 3: Choose Coach */}
           <div className={cn("space-y-4", step !== 3 && "hidden")}>
-            <label className="block text-sm font-medium text-gray-300">
+            <label className="block text-sm font-medium text-foreground">
               Step 3 — Choose Your AI Coach
             </label>
             <div className="grid gap-4 sm:grid-cols-3">
@@ -324,34 +324,34 @@ export default function PracticeHubPage() {
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedCoach(coach.id)}
                   className={cn(
-                    "flex flex-col items-center rounded-xl border p-5 text-center transition-all",
+                    "flex flex-col items-center rounded-lg border p-5 text-center transition-all",
                     selectedCoach === coach.id
-                      ? "border-blue-500 bg-blue-600/10 ring-1 ring-blue-500/30"
-                      : "border-gray-700 bg-gray-800/40 hover:border-gray-600"
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border bg-secondary hover:border-primary/50"
                   )}
                 >
                   <div
                     className={cn(
-                      "mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br text-2xl font-bold text-white",
+                      "mb-3 flex h-16 w-16 items-center justify-center rounded-lg bg-primary text-2xl font-bold text-primary-foreground",
                       coach.accentColor
                     )}
                   >
                     {coach.avatar}
                   </div>
-                  <span className="font-semibold text-white">{coach.name}</span>
-                  <span className="mt-1 text-xs text-blue-400">{coach.tagline}</span>
-                  <p className="mt-2 text-xs text-gray-500">{coach.description}</p>
+                  <span className="font-semibold text-foreground">{coach.name}</span>
+                  <span className="mt-1 text-xs text-primary">{coach.tagline}</span>
+                  <p className="mt-2 text-xs text-muted-foreground">{coach.description}</p>
                 </motion.button>
               ))}
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(2)} className="border-gray-700 text-gray-300">
+              <Button variant="outline" onClick={() => setStep(2)} className="border-border text-foreground">
                 Back
               </Button>
               <Button
                 onClick={handleStartInterview}
                 disabled={startMutation.isPending}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {startMutation.isPending ? (
                   <>
@@ -373,17 +373,17 @@ export default function PracticeHubPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <h2 className="mb-6 text-xl font-bold text-white">Past Interview Sessions</h2>
+          <h2 className="mb-6 text-xl font-bold text-foreground">Past Interview Sessions</h2>
 
           {sessionsLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : sessions.length === 0 ? (
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-10 text-center">
-              <AlertCircle className="mx-auto mb-3 h-10 w-10 text-gray-600" />
-              <p className="text-gray-400">No previous sessions yet.</p>
-              <p className="mt-1 text-sm text-gray-600">
+            <div className="rounded-lg border border-border bg-secondary p-10 text-center">
+              <AlertCircle className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+              <p className="text-muted-foreground">No previous sessions yet.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Complete your first mock interview to see feedback here.
               </p>
             </div>
@@ -401,12 +401,12 @@ export default function PracticeHubPage() {
                       router.push(`/dashboard/session/${session.id}`);
                     }
                   }}
-                  className="rounded-xl border border-gray-800 bg-gray-900/60 p-5 text-left transition-all hover:border-gray-700 hover:bg-gray-900"
+                  className="rounded-lg border border-border bg-card p-5 text-left transition-all hover:border-primary/50 hover:bg-secondary"
                 >
                   <div className="mb-3 flex items-start justify-between">
                     <div>
-                      <p className="font-semibold text-white">{session.jobRole ?? "Interview"}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="font-semibold text-foreground">{session.jobRole ?? "Interview"}</p>
+                      <p className="text-xs text-muted-foreground">
                         {new Date(session.date).toLocaleDateString()} · {session.coachName}
                       </p>
                     </div>
@@ -422,12 +422,12 @@ export default function PracticeHubPage() {
                     )}
                   </div>
                   {session.overallScore !== null ? (
-                    <p className="text-2xl font-bold text-blue-400">
+                    <p className="text-2xl font-bold text-primary">
                       {session.overallScore}
-                      <span className="text-sm font-normal text-gray-500">/10</span>
+                      <span className="text-sm font-normal text-muted-foreground">/10</span>
                     </p>
                   ) : (
-                    <p className="text-sm text-gray-500 capitalize">{session.status.toLowerCase().replace("_", " ")}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{session.status.toLowerCase().replace("_", " ")}</p>
                   )}
                 </motion.button>
               ))}
@@ -453,15 +453,15 @@ function StatCard({
   small?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-5">
-      <div className="mb-2 flex items-center gap-2 text-gray-400">
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-2 flex items-center gap-2 text-muted-foreground">
         {icon}
         <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
       {loading ? (
-        <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       ) : (
-        <p className={cn("font-bold text-white", small ? "text-sm" : "text-2xl")}>{value}</p>
+        <p className={cn("font-bold text-foreground", small ? "text-sm" : "text-2xl")}>{value}</p>
       )}
     </div>
   );
