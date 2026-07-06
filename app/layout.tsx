@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${geist.variable}`}>
+      <html lang="en" className={`dark ${geist.variable}`}>
         <body>
           <ReactQueryProvider>
             {children}
@@ -34,10 +34,11 @@ export default function RootLayout({
                 className: "font-medium text-sm",
                 duration: 4000,
                 style: {
-                  background: "#333",
-                  color: "#fff",
+                  background: "#1a1a1a",
+                  color: "#ffffff",
                   borderRadius: "8px",
                   padding: "12px",
+                  border: "1px solid #2a2a2a",
                 },
               }}
             />
