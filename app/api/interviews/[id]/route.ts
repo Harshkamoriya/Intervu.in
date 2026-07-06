@@ -15,6 +15,7 @@ import {
   mergeMemoryUpdate,
   formatMemoryForPrompt,
   type InterviewMemory,
+  computeNextDifficulty,
 } from "@/app/lib/interviewMemory";
 
 
@@ -53,6 +54,8 @@ interface GeminiInterviewResponse {
   nextMessage: string;
   type: "question" | "followup" | "hint_followup" | "encouragement" | "intro";
   endInterview: boolean;
+  questionDifficulty?: "easy" | "medium" | "hard";
+
 }
 
 interface TranscriptEntry {
@@ -273,7 +276,9 @@ await prisma.interviewSession.update({
       const prompt = personaPrompt.replace(
         "{jobRole}",
         session.jobRole ?? "Software Engineer"
-      ).replace("{resumeContext}", "");
+      ).replace("{resumeContext}", "")
+       .replace("{interviewMemory}", formatMemoryForPrompt(memory))
+       .replace("{targetDifficulty}", memory.currentDifficulty);
 
       const fullPrompt = `${prompt}\n\nConversation history: ${JSON.stringify(
         history
@@ -292,6 +297,7 @@ await prisma.interviewSession.update({
         type: "question",
         endInterview: false,
       });
+
 
       if (
         geminiResponse.analysis.correctness < 5 ||
@@ -334,9 +340,7 @@ await prisma.interviewSession.update({
         ? await queryResumeChunks(session.resumeId, query, 5)
         : [];
       resumeContext = chunks.map((c) => c.content).join("\n\n");
-      const memory: InterviewMemory = isInterviewMemory(session.interviewMemory)
-      ? session.interviewMemory
-      : createEmptyMemory();
+    
 
 
       // const prompt = personaPrompt.replace(
@@ -345,10 +349,16 @@ await prisma.interviewSession.update({
       // ).replace("{resumeContext}", resumeContext);
 
 
-      const prompt = personaPrompt
+  //     const prompt = personaPrompt
+  // .replace("{jobRole}", session.jobRole ?? "Software Engineer")
+  // .replace("{resumeContext}", resumeContext)
+  // .replace("{interviewMemory}", formatMemoryForPrompt(memory)); // ✅ new
+
+  const prompt = personaPrompt
   .replace("{jobRole}", session.jobRole ?? "Software Engineer")
   .replace("{resumeContext}", resumeContext)
-  .replace("{interviewMemory}", formatMemoryForPrompt(memory)); // ✅ new
+  .replace("{interviewMemory}", formatMemoryForPrompt(memory))
+  .replace("{targetDifficulty}", memory.currentDifficulty); // ✅ add — use CURRENT difficulty, not next
 
       const fullPrompt = `${prompt}\n\nConversation history: ${JSON.stringify(
         history
@@ -409,10 +419,24 @@ await prisma.interviewSession.update({
       }
     }
 
+    const nextDifficulty = computeNextDifficulty(
+  memory.currentDifficulty,
+  [...memory.difficultyHistory.map(d => d.score), geminiResponse.score]
+);
+
     const updatedMemory = mergeMemoryUpdate(memory, {
   ...geminiResponse.memoryUpdate,
   confidence: geminiResponse.analysis.confidence,
 });
+
+updatedMemory.currentDifficulty = nextDifficulty;
+// updatedMemory.difficultyHistory.push({ difficulty: geminiResponse.questionDifficulty, score: geminiResponse.score });
+
+updatedMemory.difficultyHistory = [
+  ...updatedMemory.difficultyHistory,
+  { difficulty: geminiResponse.questionDifficulty ?? "medium", score: geminiResponse.score },
+];
+
 
      
 

@@ -135,8 +135,13 @@ For each candidate reply:
 1. Analyze it for accuracy, depth, relevance to the role, and confidence (high/medium/low).
 2. Assign a score (1-10) with brief reasoning.
 3. Tag the primary skill/topic this reply was about (e.g., "React", "System Design", "DBMS") and rate the candidate's grasp as "strong", "average", or "weak".
-4. Decide the next response — prefer topics NOT yet covered per the interview memory above. If key areas are sufficiently covered (aim for 8-10 total questions), end gracefully.
-5. If ending, set endInterview: true.
+4. Target difficulty for the next question: {targetDifficulty}
+Generate the next question calibrated to this difficulty level:
+- easy: fundamentals, definitions, straightforward "explain X" 
+- medium: applied scenarios, trade-offs, "how would you handle X"
+- hard: edge cases, system-level reasoning, multi-concept synthesis
+5. Decide the next response — prefer topics NOT yet covered per the interview memory above. If key areas are sufficiently covered (aim for 8-10 total questions), end gracefully.
+6. If ending, set endInterview: true.
 
 Respond with ONLY valid JSON (no extra text):
 {

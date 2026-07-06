@@ -13,6 +13,8 @@ export interface InterviewMemory {
   weaknesses: string[];
   confidenceTrend: ("High" | "Medium" | "Low")[];
   questionCount: number;
+  currentDifficulty: "easy" | "medium" | "hard";
+  difficultyHistory: { difficulty: string; score: number }[];
 }
 
 export function createEmptyMemory(): InterviewMemory {
@@ -22,7 +24,27 @@ export function createEmptyMemory(): InterviewMemory {
     weaknesses: [],
     confidenceTrend: [],
     questionCount: 0,
+    currentDifficulty:"easy",
+    difficultyHistory:[],
+
   };
+}
+
+
+
+export function computeNextDifficulty(
+  current: "easy" | "medium" | "hard",
+  recentScores: number[]
+): "easy" | "medium" | "hard" {
+  const levels = ["easy", "medium", "hard"] as const;
+  const idx = levels.indexOf(current);
+  const last = recentScores.at(-1) ?? 5;
+
+  if (last <= 4) return levels[Math.max(0, idx - 1)];
+  if (last >= 7 && recentScores.slice(-2).every(s => s >= 7)) {
+    return levels[Math.min(2, idx + 1)];
+  }
+  return current;
 }
 
 export function isInterviewMemory(value: unknown): value is InterviewMemory {
@@ -32,6 +54,7 @@ export function isInterviewMemory(value: unknown): value is InterviewMemory {
     Array.isArray((value as any).topicsCovered)
   );
 }
+
 
 interface MemoryUpdateInput {
   topic?: string;
@@ -46,12 +69,14 @@ export function mergeMemoryUpdate(
   update: MemoryUpdateInput
 ): InterviewMemory {
   const next: InterviewMemory = {
-    topicsCovered: [...memory.topicsCovered],
-    strengths: [...memory.strengths],
-    weaknesses: [...memory.weaknesses],
-    confidenceTrend: [...memory.confidenceTrend],
-    questionCount: memory.questionCount + 1,
-  };
+  topicsCovered: [...memory.topicsCovered],
+  strengths: [...memory.strengths],
+  weaknesses: [...memory.weaknesses],
+  confidenceTrend: [...memory.confidenceTrend],
+  questionCount: memory.questionCount + 1,
+  currentDifficulty: memory.currentDifficulty,       // ✅ add
+  difficultyHistory: [...memory.difficultyHistory],  // ✅ add
+};
 
   if (update.topic) {
     const idx = next.topicsCovered.findIndex(
@@ -101,6 +126,7 @@ Recent confidence trend: ${recentConfidence}
 Strengths so far: ${memory.strengths.join(", ") || "none noted yet"}
 Weaknesses so far: ${memory.weaknesses.join(", ") || "none noted yet"}
 Total questions asked so far: ${memory.questionCount}
+Current difficulty level: ${memory.currentDifficulty}
 
 Instructions: Do NOT re-ask a topic already marked "strong" unless probing a genuinely new angle. Prioritize topics not yet covered, or "weak" topics worth reinforcing. Avoid near-duplicate questions.`;
 }
