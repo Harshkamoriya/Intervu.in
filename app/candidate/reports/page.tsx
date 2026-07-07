@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { 
   TrendingUp, 
   Award, 
@@ -18,24 +19,52 @@ import { cn } from "@/lib/utils";
 
 export default function ReportsPage() {
   const [stats, setStats] = useState<any>(null);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "highest" | "lowest">("newest");
 
   useEffect(() => {
     async function fetchReportData() {
       try {
-        const res = await fetch("/api/candidate/stats");
-        const data = await res.json();
-        if (data.success) {
-          setStats(data.data);
+        const [statsRes, sessionsRes] = await Promise.all([
+          fetch("/api/candidate/stats"),
+          fetch("/api/candidate/sessions")
+        ]);
+
+        const statsData = await statsRes.json();
+        const sessionsData = await sessionsRes.json();
+
+        if (statsData.success) {
+          setStats(statsData.data);
+        }
+        if (sessionsData.success) {
+          setSessions(sessionsData.data || []);
         }
       } catch (err) {
-        console.error(err);
+        console.error("[v0] Report fetch error:", err);
       } finally {
         setLoading(false);
       }
     }
     fetchReportData();
   }, []);
+
+  const filteredSessions = sessions
+    .filter(s => 
+      (s.jobRole?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+       s.coachName?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+      s.status === "ENDED"
+    )
+    .sort((a, b) => {
+      if (sortBy === "newest") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortBy === "highest") {
+        return (b.overallScore || 0) - (a.overallScore || 0);
+      } else {
+        return (a.overallScore || 0) - (b.overallScore || 0);
+      }
+    });
 
   if (loading) {
     return (
@@ -206,32 +235,60 @@ export default function ReportsPage() {
         transition={{ delay: 0.4 }}
         className="space-y-6"
       >
-        <h2 className="text-xl font-bold text-foreground">Recent Interviews</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground">Interview History</h2>
+          <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:border-primary outline-none transition-colors"
+            >
+              <option value="newest">Newest First</option>
+              <option value="highest">Highest Score</option>
+              <option value="lowest">Lowest Score</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mb-4">
+          <input
+            type="text"
+            placeholder="Search by role or coach..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary outline-none transition-colors"
+          />
+        </div>
         
         <div className="space-y-3">
-          {[
-            { date: "Today", type: "Technical", score: 7.5, duration: "45m" },
-            { date: "Yesterday", type: "DSA", score: 7.2, duration: "50m" },
-            { date: "3 days ago", type: "Behavioral", score: 8.1, duration: "35m" },
-            { date: "1 week ago", type: "System Design", score: 6.8, duration: "60m" },
-          ].map((interview, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 + idx * 0.05 }}
-              className="border border-border bg-card rounded-lg p-5 flex items-center justify-between hover:border-primary/50 transition-colors cursor-pointer"
-            >
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">{interview.type} Interview</p>
-                <p className="text-sm text-muted-foreground">{interview.date} • {interview.duration}</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-lg font-bold text-primary">{interview.score}/10</span>
-                <FileText size={18} className="text-muted-foreground" />
-              </div>
-            </motion.div>
-          ))}
+          {filteredSessions.length === 0 ? (
+            <div className="border border-dashed border-border rounded-lg p-8 text-center space-y-2">
+              <p className="text-muted-foreground">No interviews found</p>
+              <p className="text-sm text-muted-foreground">Start practicing to see your interview history here</p>
+            </div>
+          ) : (
+            filteredSessions.map((interview, idx) => (
+              <motion.a
+                key={interview.id}
+                href={`/candidate/reports/${interview.id}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + idx * 0.05 }}
+                className="border border-border bg-card rounded-lg p-5 flex items-center justify-between hover:border-primary/50 hover:bg-secondary transition-all cursor-pointer group"
+              >
+                <div className="space-y-1 flex-1">
+                  <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{interview.jobRole || "Interview"}</p>
+                  <p className="text-sm text-muted-foreground">{new Date(interview.createdAt).toLocaleDateString()} • Duration: ~45m</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className={`text-lg font-bold ${interview.overallScore ? "text-primary" : "text-muted-foreground"}`}>
+                    {interview.overallScore || "—"}/10
+                  </span>
+                  <FileText size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </motion.a>
+            ))
+          )}
         </div>
       </motion.section>
 
