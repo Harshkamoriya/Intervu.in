@@ -316,26 +316,39 @@ export default function InterviewsPage() {
       >
         <h2 className="text-xl font-bold text-foreground">Interview History</h2>
 
-        <div className="space-y-3">
-          {sessions.slice(0, 5).map((session, idx) => (
-            <motion.div
-              key={session.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 + idx * 0.05 }}
-              className="border border-border bg-card rounded-lg p-5 flex items-center justify-between hover:border-primary/50 transition-colors"
-            >
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">{session.jobRole || "Interview"}</p>
-                <p className="text-sm text-muted-foreground">{new Date(session.date || session.createdAt).toLocaleDateString()} • Duration: ~45m</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-lg font-bold text-primary">{session.overallScore || "—"}/10</span>
-                <ChevronRight className="text-muted-foreground" />
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        {sessions.length === 0 ? (
+          <div className="border border-dashed border-border rounded-lg p-8 text-center space-y-3">
+            <p className="text-muted-foreground">No interviews completed yet</p>
+            <p className="text-sm text-muted-foreground">Start your first interview to see your history here</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sessions.slice(0, 10).map((session, idx) => (
+              <Link
+                key={session.id}
+                href={`/candidate/reports/${session.id}`}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.45 + idx * 0.05 }}
+                  className="border border-border bg-card rounded-lg p-5 flex items-center justify-between hover:border-primary/50 hover:bg-secondary transition-all cursor-pointer group"
+                >
+                  <div className="space-y-1 flex-1">
+                    <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{session.jobRole || "Interview"}</p>
+                    <p className="text-sm text-muted-foreground">{new Date(session.date || session.createdAt).toLocaleDateString()} • Duration: ~45m</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className={`text-lg font-bold ${session.overallScore ? "text-primary" : "text-muted-foreground"}`}>
+                      {session.overallScore || "—"}/10
+                    </span>
+                    <ChevronRight className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  </div>
+                </motion.div>
+              </Link>
+            ))}
+          </div>
+        )}
       </motion.section>
     </div>
   );
